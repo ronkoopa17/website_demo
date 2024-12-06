@@ -1,13 +1,62 @@
 <!DOCTYPE html>
-<html>
-  <head>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
     <title>TEST TEST TEST</title>
-  </head>
-  <body>
-    <h1>TEST TEST</h1>
-    <p>TEST</p>
-    <hr>
-    <p>RGB Directory: <input type="file" webkitdirectory mozdirectory accept="image/*" /></p>
-    <p>UV Directory: <input type="file" webkitdirectory mozdirectory accept="image/*" /></p>
-  </body>
+</head>
+<body>
+    <form id="folderForm">
+        <label for="folderInput1">Select Folder 1:</label>
+        <input type="file" id="folderInput1" webkitdirectory directory multiple>
+        <label for="folderInput2">Select Folder 2:</label>
+        <input type="file" id="folderInput2" webkitdirectory directory multiple>
+        <button type="submit">Submit</button>
+    </form>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script>
+        async function encryptAndUpload() {
+            const folderInput1 = document.getElementById('folderInput1').files;
+            const folderInput2 = document.getElementById('folderInput2').files;
+            const { server_ip, server_port, password } = await fetchConfig(); // Fetch the config securely
+
+            await encryptAndUploadFiles(folderInput1, password, 'folder1', server_ip, server_port);
+            await encryptAndUploadFiles(folderInput2, password, 'folder2', server_ip, server_port);
+        }
+
+        async function fetchConfig() {
+            const response = await fetch('/config');
+            const config = await response.json();
+            return config;
+        }
+
+        async function encryptAndUploadFiles(files, password, folderName, serverIp, serverPort) {
+            for (let file of files) {
+                const reader = new FileReader();
+
+                reader.onload = function(event) {
+                    const fileContent = event.target.result;
+                    const encrypted = CryptoJS.AES.encrypt(fileContent, password).toString();
+
+                    const formData = new FormData();
+                    formData.append('file', new Blob([encrypted], { type: 'text/plain' }), folderName + '/' + file.name + '.enc');
+
+                    fetch(`http://${serverIp}:${serverPort}/api/upload`, {
+                        method: 'POST',
+                        body: formData
+                    }).then(response => response.json())
+                      .then(data => console.log(data))
+                      .catch(error => console.error('Error:', error));
+                };
+
+                reader.readAsText(file);
+            }
+        }
+
+        document.getElementById('folderForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            encryptAndUpload();
+        });
+    </script>
+</body>
 </html>
